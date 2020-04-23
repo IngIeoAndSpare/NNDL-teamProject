@@ -13,6 +13,7 @@ import os
 import os.path
 
 ## Dataloader utils module
+import sys
 sys.path.append("..")
 from Utils.CustomDataSetUtil import CustomDataset
 
@@ -21,7 +22,7 @@ from Network.ConvNetworkpy import ConvNetwork
 
 class ClassificationModule:
 
-    def __init__(self, train_path, test_path, network_result_path, tr_batch_size = 32, tr_epoch = 256, tr_rate = 0.0001):
+    def __init__(self, train_path, test_path, network_result_path, network_name, tr_batch_size = 32, tr_epoch = 256, tr_rate = 0.0001):
         
         ## File path params
         self.path_train = train_path
@@ -33,7 +34,7 @@ class ClassificationModule:
         self.tr_epoch = tr_epoch
         self.tr_rate = tr_rate
         self.tr_image_chanels = "RGB"
-        self.tr_network_name = ""
+        self.tr_network_name = network_name
 
         ## Classification params
         self.cl_classification_labels = ['line', 'square', 'unspecified_shapes', 'dispersion', 'normal']
@@ -42,7 +43,10 @@ class ClassificationModule:
         self.summary_flag = False
         self.writer = None
 
-    def training_network(self, network_name):
+        ## debugger flag
+        self.debuggerFlag = False
+
+    def training_network(self):
 
         ## Init train transforms
         transforms_train = transforms.Compose(
@@ -66,6 +70,13 @@ class ClassificationModule:
 
         ## Init device network
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        if self.debuggerFlag :
+            print(f"[cls module : training_network]setting params ========================================")
+            print(f"network name : {self.tr_network_name}")
+            print(f"classification num : {len(self.cl_classification_labels)}")
+            print(f"device name : {device} \n")
+
         network_model = self._get_network_model(
             self.tr_network_name, len(self.cl_classification_labels), device
         )
@@ -148,9 +159,13 @@ class ClassificationModule:
 
 
     ## Data loader getter
-    def _get_dataset(self, file_path, transforms):
+    def _get_dataset(self, file_path, set_transforms):
+        if self.debuggerFlag :
+            print(f"[cls moudle : _get_dataset] =======================================")
+            print(f"data set file path => {file_path} \n")
+        
         return CustomDataset(
-            self.cl_classification_labels, file_path, self.tr_image_chanels
+            self.cl_classification_labels, file_path, self.tr_image_chanels ,set_transforms
         )
 
     ## Network getter
