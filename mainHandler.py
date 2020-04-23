@@ -2,36 +2,50 @@
 from Module.ImageClassificationModule import ClassificationModule
 ## from Module.ImageInpaintingModule import AutoEncoderModule
 
-## utils
-## from Utils.
-## from Utils.
-
 ## util lib import
 import os
+import sys
 import json
-
-
 
 if __name__ == "__main__":
 
-    APPLCATION_ROOT_PATH = r"..\\"
+    APPLCATION_ROOT_PATH = os.path.dirname(os.path.realpath(sys.argv[0]))
+    CLASSIFICATION_NETWORK_NAME = "ShuffleNet"
 
-    ## file path ===================================
+    ## File path ===================================
     
     ## Train image path 
-    train_image_file_path = os.path.join(APPLCATION_ROOT_PATH, "train_data")
+    cl_train_image_file_path = os.path.join(APPLCATION_ROOT_PATH, "cl_train_data")
 
-    ## Inpainting image path
-    inpainting_image_file_path = os.path.join(APPLCATION_ROOT_PATH, "inpatinting")
+    ## Train image path 
+    cl_test_image_file_path = os.path.join(APPLCATION_ROOT_PATH, "cl_test_data")
+    
+    ## Classification network tr result file path
+    cl_result_networ_file_path = os.path.join(APPLCATION_ROOT_PATH, "network_result")
+
+
+    ## Inpainting train image path
+    ip_train_image_file_path = os.path.join(APPLCATION_ROOT_PATH, "ip_train_data")
+
+    ip_test_image_file_path = os.path.join(APPLCATION_ROOT_PATH, "ip_test_data")
+
+    ## Inpainting network tr result file path
+    ip_result_network_file_path = os.path.join(APPLCATION_ROOT_PATH, "network_result")
 
     ## Reffer image set path
     ref_image_file_path = os.path.join(APPLCATION_ROOT_PATH, "ref_set")
 
-    ## Classification network tr result file path
-    result_cls_file_path = os.path.join(APPLCATION_ROOT_PATH, "network_result")
+    ## File path end ================================
 
-    ## Inpainting network tr result file path
-    result_ip_file_path = os.path.join(APPLCATION_ROOT_PATH, "network_result")
+    ## Image classification training
+    classificationModule = ClassificationModule (
+            cl_train_image_file_path,
+            cl_test_image_file_path,
+            cl_result_networ_file_path,
+            CLASSIFICATION_NETWORK_NAME
+    )
 
-    ## file path end ================================
+    classificationModule.training_network()
+    
 
+    ## TODO : AutoEncoder training code
