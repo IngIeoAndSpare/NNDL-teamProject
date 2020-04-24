@@ -2,6 +2,13 @@
 
 **map tile error finder and recoved error image**
 
+## run ##
+run on the conda prompt
+
+```
+$ python mainHandler.py
+
+```
 
 ## explain ##
 
