@@ -7,10 +7,15 @@ import os
 import sys
 import json
 
+## util 
+from Utils.err_image_generator import ErrorImageGenerator
+
 if __name__ == "__main__":
 
     APPLCATION_ROOT_PATH = os.path.dirname(os.path.realpath(sys.argv[0]))
     CLASSIFICATION_NETWORK_NAME = "ShuffleNet"
+    
+    TRAINING_FLAG = False
 
     ## File path ===================================
     
@@ -37,14 +42,26 @@ if __name__ == "__main__":
 
     ## File path end ================================
 
-    ## Image classification training
-    classificationModule = ClassificationModule (
-            cl_train_image_file_path,
-            cl_test_image_file_path,
-            cl_result_networ_file_path,
-            CLASSIFICATION_NETWORK_NAME
+    ## Error Image generator util example
+    '''
+    err_generator= ErrorImageGenerator(
+        './data', './train_data', 'err_image'
     )
+    err_generator.get_error_image_from_mask()
+    '''
+    ## example end ===========================
 
+    if TRAINING_FLAG :
+        ## Image classification training
+        classificationModule = ClassificationModule (
+                cl_train_image_file_path,
+                cl_test_image_file_path,
+                cl_result_networ_file_path,
+                CLASSIFICATION_NETWORK_NAME
+        )
+
+    
+    ## Image classification
     classificationModule.training_network()
     
 
