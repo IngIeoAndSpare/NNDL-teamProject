@@ -1,3 +1,9 @@
+## image module
+from PIL import Image
+
+## classification module
+import numpy as np
+
 ## torch module
 import torch 
 import torch.nn as nn
@@ -16,6 +22,7 @@ import os.path
 import sys
 sys.path.append("..")
 from Utils.CustomDataSetUtil import CustomDataset
+from Utils.ClassificationDataSetUtil import ClassificationDataSet
 
 ## Netwrok utils module
 from Network.ConvNetworkpy import ConvNetwork
@@ -41,10 +48,10 @@ class ClassificationModule:
 
         ## summary
         self.summary_flag = False
-        self.writer = None
+        self.summary_writer = None
 
         ## debugger flag
-        self.debuggerFlag = False
+        self.debugger_flag = True
 
     def training_network(self):
 
@@ -71,7 +78,7 @@ class ClassificationModule:
         ## Init device network
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        if self.debuggerFlag :
+        if self.debugger_flag :
             print(f"[cls module : training_network]setting params ========================================")
             print(f"network name : {self.tr_network_name}")
             print(f"classification num : {len(self.cl_classification_labels)}")
@@ -83,7 +90,7 @@ class ClassificationModule:
 
         ## Summary setting
         if self.summary_flag :
-            self.writer = SummaryWriter("{}_{}".format(self.tr_network_name, self.tr_epoch))            
+            self.summary_writer = SummaryWriter("{}_{}".format(self.tr_network_name, self.tr_epoch))            
 
         ## pt file params setting and load file
         pt_filepath = os.path.join(self.path_network_result, "{}.pt".format(self.tr_network_name))
@@ -120,7 +127,7 @@ class ClassificationModule:
                         print(f'[Epoch {epoch_count} / {self.tr_epoch}], Loss : [{loss.item():.4f}]')
                         torch.save(network_model.state_dict(), pt_filepath)
                         if self.summary_flag :
-                            self.writer.add_scalar('Train/loss', loss.item(), step)
+                            self.summary_writer.add_scalar('Train/loss', loss.item(), step)
 
                         step += 1
                 else :
@@ -142,11 +149,53 @@ class ClassificationModule:
                 answer_ratio = 100 * correct / total
                 print(f'Test Accuracy of the model on the {total} test images: {answer_ratio} %')
                 if self.summary_flag :
-                    self.writer.add_scalar('Test/answer', answer_ratio, total)
+                    self.summary_writer.add_scalar('Test/answer', answer_ratio, total)
             else :
                 continue
 
             
+    
+    def classification_image(self, image_path, image_encode):
+        
+        result = []
+        transforms_cl = transforms.Compose(
+            [
+                transforms.Resize((256, 256)),
+                transforms.ToTensor()
+            ]
+        ) 
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        network_model = self._get_network_model(
+            self.tr_network_name, len(self.cl_classification_labels), device
+        )
+
+        ## pt file params setting and load file
+        pt_filepath = os.path.join(self.path_network_result, "{}.pt".format(self.tr_network_name))
+        if os.path.isfile(pt_filepath):
+            network_model.load_state_dict(torch.load(pt_filepath))
+            network_model.eval()    
+
+        ## data set, loader init
+        dataset = ClassificationDataSet(image_path, image_encode, transforms_cl)
+        data_loader = DataLoader(dataset, batch_size = 1)
+
+        ## classification
+        for data_set in data_loader:
+            image = data_set["image"]
+            file_name = data_set["file_name"]
+
+            tensor_image = image.to(device)
+            output = network_model(tensor_image)
+
+
+            result.append({
+                "class" : np.argmax(output).item(), ## max value index (label)
+                "file_name" : file_name ## file name for ref image get
+            })
+
+        return result
+
 
     def _get_data_loader(self, file_path, transforms):
         dataset = self._get_dataset(
@@ -160,7 +209,7 @@ class ClassificationModule:
 
     ## Data loader getter
     def _get_dataset(self, file_path, set_transforms):
-        if self.debuggerFlag :
+        if self.debugger_flag :
             print(f"[cls moudle : _get_dataset] =======================================")
             print(f"data set file path => {file_path} \n")
         
@@ -185,5 +234,6 @@ class ClassificationModule:
     def _get_model_output(self, model, item_set, device):
         ori_images = item_set['ori_image'].to(device)
         labels = item_set['label'].to(device)
-    
+
+        print(ori_images)
         return labels, model(ori_images)
