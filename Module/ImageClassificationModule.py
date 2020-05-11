@@ -26,6 +26,7 @@ from Utils.ClassificationDataSetUtil import ClassificationDataSet
 
 ## Netwrok utils module
 from Network.ConvNetworkpy import ConvNetwork
+from Network.ResNetwork import ResNet
 
 class ClassificationModule:
 
@@ -221,6 +222,7 @@ class ClassificationModule:
     def _get_network_model(self, model_name, class_num, device):
         return {
             'CNN' : ConvNetwork(num_class = class_num).to(device),
+            'CustomResNet' : ResNet('imagenet', 18, class_num).to(device),
             'RES18' : torch_models.resnet18().to(device),
             'RES34' : torch_models.resnet34().to(device),
             'RES50' : torch_models.resnet50().to(device),
@@ -235,5 +237,4 @@ class ClassificationModule:
         ori_images = item_set['ori_image'].to(device)
         labels = item_set['label'].to(device)
 
-        print(ori_images)
         return labels, model(ori_images)
