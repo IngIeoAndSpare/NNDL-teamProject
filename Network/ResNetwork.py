@@ -94,7 +94,7 @@ class ResNet(nn.Module):
                 n = int((depth - 2) / 6)
                 block = BasicBlock
 
-            self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
+            self.conv1 = nn.Conv2d(4, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
             self.bn1 = nn.BatchNorm2d(self.inplanes)
             self.relu = nn.ReLU(inplace=True)
             self.layer1 = self._make_layer(block, 16, n)
@@ -109,7 +109,7 @@ class ResNet(nn.Module):
             assert layers[depth], 'invalid detph for ResNet (depth should be one of 18, 34, 50, 101, 152, and 200)'
 
             self.inplanes = 64
-            self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+            self.conv1 = nn.Conv2d(4, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
             self.bn1 = nn.BatchNorm2d(64)
             self.relu = nn.ReLU(inplace=True)
             self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
