@@ -30,25 +30,26 @@ from Network.ResNetwork import ResNet
 
 class ClassificationModule:
 
-    def __init__(self, train_path, test_path, network_result_path, network_name, tr_batch_size = 32, tr_epoch = 256, tr_rate = 0.0001):
+    def __init__(self, train_path, test_path, validation_path, network_result_path, network_name, tr_batch_size = 32, tr_epoch = 512, tr_rate = 0.0001):
         
         ## File path params
         self.path_train = train_path
         self.path_test = test_path
+        self.path_validation = validation_path
         self.path_network_result = network_result_path
 
         ## Train params
         self.tr_batch_size = tr_batch_size
         self.tr_epoch = tr_epoch
         self.tr_rate = tr_rate
-        self.tr_image_chanels = "RGB"
+        self.tr_image_chanels = "RGBA"
         self.tr_network_name = network_name
 
         ## Classification params
         self.cl_classification_labels = ['line', 'square', 'unspecified_shapes', 'dispersion', 'normal']
 
         ## summary
-        self.summary_flag = False
+        self.summary_flag = True
         self.summary_writer = None
 
         ## debugger flag
@@ -65,15 +66,29 @@ class ClassificationModule:
             ]
         )
 
-        transforms_test = transforms.Compose(
+        transforms_validation = transforms.Compose(
             [
                 transforms.Resize((256, 256)),
                 transforms.ToTensor()
             ]
         ) 
 
+        transforms_test = transforms.Compose(
+            [
+                transforms.Resize((256, 256)),
+                transforms.ToTensor()
+            ]
+        ) 
+            
+        if self.debugger_flag :
+            print(f"[cls module : training_network]setting path ========================================")
+            print(f"train_data path : {self.path_train}")
+            print(f"validation path : {self.path_validation}")
+            print(f"test path : {self.path_test}")
+
         ## Init loader
         _, train_data_loader = self._get_data_loader(self.path_train, transforms_train)
+        _, validation_data_loader = self._get_data_loader(self.path_validation, transforms_validation)
         _, test_data_loader = self._get_data_loader(self.path_test, transforms_test)
 
         ## Init device network
@@ -100,15 +115,27 @@ class ClassificationModule:
             network_model.eval()        
 
         ## Update var
-        criterion = nn.CrossEntropyLoss()
-        optimizer = torch.optim.Adam(network_model.parameters(), lr=self.tr_rate)
+        criterion = nn.CrossEntropyLoss().cuda()
+        '''
+        optimizer = torch.optim.Adam(
+            network_model.parameters(), lr=self.tr_rate
+        )
+        '''
 
+        optimizer = torch.optim.SGD(
+            network_model.parameters(), self.tr_rate,
+            momentum = 0.9, weight_decay= 1e-5, nesterov=True
+        )
 
-        step = 1
+        best_validation_pt = os.path.join(self.path_network_result, "{}.pt".format(self.tr_network_name+"_best"))
+        best_validation_test_rate = 0
 
+        temp_size = 52
+        total_step = 1
         for epoch_count in range(self.tr_epoch):
             for batch_size, data_set in enumerate(train_data_loader):
                 if data_set['ori_image'] is not None:
+                    # print(f"batch_size => {batch_size}   {self.tr_batch_size}")
                     labels, outputs = self._get_model_output(network_model, data_set, device)
                     
                     '''
@@ -124,17 +151,87 @@ class ClassificationModule:
                     loss.backward()
                     optimizer.step()
 
-                    if (batch_size + 1) % self.tr_batch_size == 0:
-                        print(f'[Epoch {epoch_count} / {self.tr_epoch}], Loss : [{loss.item():.4f}]')
+                    ## if (batch_size + 1) % self.tr_batch_size == 0:
+                    if (batch_size + 1) % temp_size == 0:
+                        print(f'[Epoch {epoch_count} / {self.tr_epoch}], Iterate {total_step} / {self.tr_batch_size} Loss : [{loss.item():.4f}]')
                         torch.save(network_model.state_dict(), pt_filepath)
                         if self.summary_flag :
-                            self.summary_writer.add_scalar('Train/loss', loss.item(), step)
-
-                        step += 1
+                            self.summary_writer.add_scalar('Train/loss(iter)', loss.item(), total_step)
+                        total_step += 1
+                    
                 else :
                     continue
+            ## batch, data_set loop end
+            if epoch_count % 5 == 0 :
+                ## check validation.
+                correct = 0
+                total = 0
+                        
+                for val_data_set in validation_data_loader:
+                    if val_data_set['ori_image'] is not None:
+                        val_labels, val_outputs = self._get_model_output(network_model, val_data_set, device)
 
+                        _, predicted = torch.max(val_outputs.data, 1)
+                        total += len(val_labels)
+                        correct += (predicted == val_labels).sum().item()
+                    else :
+                        continue 
+                        
+                answer_ratio = 100 * correct / total
+                if self.summary_flag :
+                    self.summary_writer.add_scalar('validation_1/answer', answer_ratio, epoch_count)
+
+                print(f'Validation Accuracy of the model on the {total} validation images: {answer_ratio} %')
+
+                ## answer test
+                answer_rate = self.testing_network(False, test_data_loader, network_model)
+                if self.summary_flag :
+                    self.summary_writer.add_scalar('validation_2/answer', answer_rate, epoch_count)
+
+                if answer_rate > best_validation_test_rate :
+                    torch.save(network_model.state_dict(), best_validation_pt)
+                    print(f"best testing change {answer_rate} > {best_validation_test_rate}")
+                    best_validation_test_rate = answer_rate
+
+
+            ## validation block end
+
+        ## epoch loop end    
         network_model.eval()
+        self.testing_network(False, test_data_loader, network_model)
+
+
+
+    def testing_network(self, outcall = True, test_loader = None, test_network = None):
+        
+        test_data_loader = None
+        network_model = None
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        if outcall :
+            network_model = self._get_network_model(
+                self.tr_network_name, len(self.cl_classification_labels), device
+            )
+
+            if self.debugger_flag :
+                print(f"[cls module : testing_network]setting path ========================================")
+                print(f"test_data path : {self.path_test}")
+                print(f"network name : {self.tr_network_name}")
+                print(f"classification num : {len(self.cl_classification_labels)}")
+                print(f"device name : {device} \n")
+
+
+            transforms_test = transforms.Compose(
+                [
+                    transforms.Resize((256, 256)),
+                    transforms.ToTensor()
+                ]
+            ) 
+            
+            _, test_data_loader = self._get_data_loader(self.path_test, transforms_test)
+        else :
+            test_data_loader = test_loader
+            network_model = test_network
 
         correct = 0
         total = 0
@@ -148,14 +245,19 @@ class ClassificationModule:
                 total += len(labels)
                 correct += (predicted == labels).sum().item()
                 answer_ratio = 100 * correct / total
-                print(f'Test Accuracy of the model on the {total} test images: {answer_ratio} %')
+                
+                '''
                 if self.summary_flag :
                     self.summary_writer.add_scalar('Test/answer', answer_ratio, total)
+                '''
+
             else :
                 continue
+        
+        print(f'Test Accuracy of the model on the {total} test images: {answer_ratio} %')
+        
+        return answer_ratio
 
-            
-    
     def classification_image(self, image_path, image_encode):
         
         result = []
@@ -214,9 +316,14 @@ class ClassificationModule:
             print(f"[cls moudle : _get_dataset] =======================================")
             print(f"data set file path => {file_path} \n")
         
-        return CustomDataset(
+        data_set = CustomDataset(
             self.cl_classification_labels, file_path, self.tr_image_chanels ,set_transforms
         )
+
+        if self.debugger_flag :
+            print(f"data set load ok. \n")
+
+        return data_set
 
     ## Network getter
     def _get_network_model(self, model_name, class_num, device):
