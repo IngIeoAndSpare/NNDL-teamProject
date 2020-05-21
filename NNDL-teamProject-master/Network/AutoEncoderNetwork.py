@@ -315,7 +315,7 @@ class VAENetwork(nn.Module):
                                                                               horizontal_target)
         return loss_tv
 
-
+#### it is not used ####
 class vgg(nn.Module):
     def __init__(self):
         super(vgg, self).__init__()
