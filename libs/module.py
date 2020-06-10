@@ -1,5 +1,5 @@
 from torch.autograd import Variable
-from layers import PartialConv2d
+from .layers import PartialConv2d
 import torch.nn.functional as F
 import torch.nn as nn
 import numpy as np
